@@ -1,3 +1,19 @@
+---
+title: Ollive AI Assistant
+emoji: 🤖
+colorFrom: blue
+colorTo: orange
+sdk: docker
+app_port: 8501
+tags:
+  - streamlit
+  - llm
+  - evaluation
+  - guardrails
+  - qwen
+  - gpt-4o-mini
+---
+
 # AI Assistant Comparison — Ollive Assignment
 
 A production-grade dual-assistant evaluation pipeline that runs **Qwen 2.5-0.5B** (open-source) and **GPT-4o-mini** (frontier) side-by-side in a Streamlit UI, with identical guardrail, memory, and telemetry pipelines wrapping both models.
