@@ -1,8 +1,10 @@
 import time
+from pathlib import Path
 import streamlit as st
 from dotenv import load_dotenv
 
-from config import OSS_MODEL_ID, FRONTIER_MODEL_ID
+from config import OSS_MODEL_ID, FRONTIER_MODEL_ID, DEMO_MAX_TURNS, DEMO_MAX_TOKENS, DEMO_CONTACT_EMAIL, DEMO_PASSKEY
+from config import EVAL_RESULTS_FILE
 from prompts import ASSISTANT_SYSTEM_PROMPT
 from models.hf_oss_client import HFOSSClient
 from models.openai_frontier_client import OpenAIFrontierClient
@@ -44,9 +46,33 @@ def _init_state():
             "oss": {"latency_ms": None, "input_tokens": None, "output_tokens": None, "guard": "—"},
             "frontier": {"latency_ms": None, "input_tokens": None, "output_tokens": None, "guard": "—"},
         }
+    if "session_turns" not in st.session_state:
+        st.session_state.session_turns = 0
+    if "session_tokens" not in st.session_state:
+        st.session_state.session_tokens = 0
 
 
 _init_state()
+
+
+# ---------------------------------------------------------------------------
+# Demo limit check
+# ---------------------------------------------------------------------------
+def _demo_limit_reached() -> str | None:
+    """Returns a throttle message if the session has hit its limit, None otherwise."""
+    if st.session_state.session_turns >= DEMO_MAX_TURNS:
+        return (
+            f"This demo is limited to **{DEMO_MAX_TURNS} turns** per session. "
+            f"To continue or request extended access, contact "
+            f"[{DEMO_CONTACT_EMAIL}](mailto:{DEMO_CONTACT_EMAIL})."
+        )
+    if st.session_state.session_tokens >= DEMO_MAX_TOKENS:
+        return (
+            f"This demo has reached its token budget for this session. "
+            f"To continue or request extended access, contact "
+            f"[{DEMO_CONTACT_EMAIL}](mailto:{DEMO_CONTACT_EMAIL})."
+        )
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -88,6 +114,12 @@ def _run_turn(user_input: str, client, memory: LazyMemoryManager, model_label: s
     if result["_code"] != 200:
         metrics = {"latency_ms": round(latency_ms), "input_tokens": 0, "output_tokens": 0, "guard": f"error:{result['_code']}"}
         logger.log(model_label, memory._turn_count, latency_ms, 0, 0, f"error:{result['_code']}")
+        # surface billing errors as a friendly contact message
+        if result["_code"] in (429, 503) and "billing" in result["_msg"].lower() or "quota" in result["_msg"].lower():
+            return (
+                f"This demo has reached its usage limit. "
+                f"To continue, contact [{DEMO_CONTACT_EMAIL}](mailto:{DEMO_CONTACT_EMAIL})."
+            ), metrics
         return f"⚠️ {result['_msg']}", metrics
 
     raw_response = result["_data"]
@@ -104,6 +136,10 @@ def _run_turn(user_input: str, client, memory: LazyMemoryManager, model_label: s
     # add assistant turn to memory
     memory.add_turn("assistant", final_response)
 
+    # accumulate session token usage (only count frontier model to avoid double-counting)
+    if model_label == "gpt-4o-mini":
+        st.session_state.session_tokens += input_tokens + output_tokens
+
     metrics = {
         "latency_ms": round(latency_ms),
         "input_tokens": input_tokens,
@@ -119,6 +155,10 @@ def _run_turn(user_input: str, client, memory: LazyMemoryManager, model_label: s
 # ---------------------------------------------------------------------------
 with st.sidebar:
     st.header("Live Metrics")
+    turns_left = DEMO_MAX_TURNS - st.session_state.session_turns
+    tokens_left = DEMO_MAX_TOKENS - st.session_state.session_tokens
+    st.caption(f"Demo quota: **{turns_left} turns** and **{tokens_left} tokens** remaining")
+    st.divider()
     for label, key in [("Qwen 2.5-0.5B (OSS)", "oss"), ("GPT-4o-mini (Frontier)", "frontier")]:
         st.subheader(label)
         m = st.session_state.metrics[key]
@@ -133,6 +173,8 @@ with st.sidebar:
         st.session_state.oss_memory.reset()
         st.session_state.frontier_memory.reset()
         st.session_state.chat_log = []
+        st.session_state.session_turns = 0
+        st.session_state.session_tokens = 0
         st.session_state.metrics = {
             "oss": {"latency_ms": None, "input_tokens": None, "output_tokens": None, "guard": "—"},
             "frontier": {"latency_ms": None, "input_tokens": None, "output_tokens": None, "guard": "—"},
@@ -141,73 +183,162 @@ with st.sidebar:
 
 
 # ---------------------------------------------------------------------------
-# Main chat columns
+# Tabs
 # ---------------------------------------------------------------------------
-col_oss, col_frontier = st.columns(2)
+tab_chat, tab_eval = st.tabs(["Chat", "Evaluation"])
 
-with col_oss:
-    st.subheader("Qwen 2.5-0.5B (OSS)")
-    oss_container = st.container(height=520)
 
-with col_frontier:
-    st.subheader("GPT-4o-mini (Frontier)")
-    frontier_container = st.container(height=520)
+# ---------------------------------------------------------------------------
+# Tab 1: Chat
+# ---------------------------------------------------------------------------
+with tab_chat:
+    col_oss, col_frontier = st.columns(2)
 
-# render existing history
-for entry in st.session_state.chat_log:
-    with oss_container:
-        with st.chat_message(entry["role"]):
-            st.markdown(entry["oss_content"])
-    with frontier_container:
-        with st.chat_message(entry["role"]):
-            st.markdown(entry["frontier_content"])
+    with col_oss:
+        st.subheader("Qwen 2.5-0.5B (OSS)")
+        oss_container = st.container(height=520)
 
-# chat input
-user_input = st.chat_input("Type a message...")
+    with col_frontier:
+        st.subheader("GPT-4o-mini (Frontier)")
+        frontier_container = st.container(height=520)
 
-if user_input:
-    # show user message immediately in both columns
-    with oss_container:
-        with st.chat_message("user"):
-            st.markdown(user_input)
-    with frontier_container:
-        with st.chat_message("user"):
-            st.markdown(user_input)
+    for entry in st.session_state.chat_log:
+        with oss_container:
+            with st.chat_message(entry["role"]):
+                st.markdown(entry["oss_content"])
+        with frontier_container:
+            with st.chat_message(entry["role"]):
+                st.markdown(entry["frontier_content"])
 
-    # run both turns
-    with oss_container:
-        with st.chat_message("assistant"):
-            with st.spinner(""):
-                oss_response, oss_metrics = _run_turn(
-                    user_input,
-                    st.session_state.oss_client,
-                    st.session_state.oss_memory,
-                    "qwen-0.5b",
-                )
-            st.markdown(oss_response)
+    user_input = st.chat_input("Type a message...")
 
-    with frontier_container:
-        with st.chat_message("assistant"):
-            with st.spinner(""):
-                frontier_response, frontier_metrics = _run_turn(
-                    user_input,
-                    st.session_state.frontier_client,
-                    st.session_state.frontier_memory,
-                    "gpt-4o-mini",
-                )
-            st.markdown(frontier_response)
+    if user_input:
+        limit_msg = _demo_limit_reached()
+        if limit_msg:
+            st.warning(limit_msg)
+            passkey = st.text_input("Enter passkey to reset usage limits:", type="password", key="passkey_input")
+            if passkey:
+                if passkey == DEMO_PASSKEY:
+                    st.session_state.session_turns = 0
+                    st.session_state.session_tokens = 0
+                    st.success("Usage reset. Continue chatting.")
+                    st.rerun()
+                else:
+                    st.error("Invalid passkey.")
+            st.stop()
 
-    # persist to chat log and update metrics
-    st.session_state.chat_log.append({
-        "role": "user",
-        "oss_content": user_input,
-        "frontier_content": user_input,
-    })
-    st.session_state.chat_log.append({
-        "role": "assistant",
-        "oss_content": oss_response,
-        "frontier_content": frontier_response,
-    })
-    st.session_state.metrics["oss"] = oss_metrics
-    st.session_state.metrics["frontier"] = frontier_metrics
-    st.rerun()
+        st.session_state.session_turns += 1
+
+        with oss_container:
+            with st.chat_message("user"):
+                st.markdown(user_input)
+        with frontier_container:
+            with st.chat_message("user"):
+                st.markdown(user_input)
+
+        with oss_container:
+            with st.chat_message("assistant"):
+                with st.spinner(""):
+                    oss_response, oss_metrics = _run_turn(
+                        user_input,
+                        st.session_state.oss_client,
+                        st.session_state.oss_memory,
+                        "qwen-0.5b",
+                    )
+                st.markdown(oss_response)
+
+        with frontier_container:
+            with st.chat_message("assistant"):
+                with st.spinner(""):
+                    frontier_response, frontier_metrics = _run_turn(
+                        user_input,
+                        st.session_state.frontier_client,
+                        st.session_state.frontier_memory,
+                        "gpt-4o-mini",
+                    )
+                st.markdown(frontier_response)
+
+        st.session_state.chat_log.append({
+            "role": "user",
+            "oss_content": user_input,
+            "frontier_content": user_input,
+        })
+        st.session_state.chat_log.append({
+            "role": "assistant",
+            "oss_content": oss_response,
+            "frontier_content": frontier_response,
+        })
+        st.session_state.metrics["oss"] = oss_metrics
+        st.session_state.metrics["frontier"] = frontier_metrics
+        st.rerun()
+
+
+# ---------------------------------------------------------------------------
+# Tab 2: Evaluation
+# ---------------------------------------------------------------------------
+with tab_eval:
+    st.subheader("Automated Evaluation Suite")
+    st.caption(
+        "Runs both assistants through the 5-bucket test suite and scores each response "
+        "using GPT-4o as an impartial judge. Results are saved to `evaluation/eval_results.json`."
+    )
+
+    col_run, col_viz = st.columns(2)
+
+    with col_run:
+        if st.button("Run Evaluation", type="primary", use_container_width=True):
+            with st.spinner("Running evaluation — this may take a few minutes..."):
+                try:
+                    from evaluation.eval_judge import run_evaluation
+                    run_evaluation()
+                    st.success("Evaluation complete. Results saved to `evaluation/eval_results.json`.")
+                except Exception as e:
+                    st.error(f"Evaluation failed: {e}")
+
+    with col_viz:
+        results_exist = Path(EVAL_RESULTS_FILE).exists()
+        if st.button(
+            "Show Visualizations",
+            type="secondary",
+            use_container_width=True,
+            disabled=not results_exist,
+            help="Run the evaluation first to generate results." if not results_exist else None,
+        ):
+            st.session_state.show_charts = True
+
+    if not results_exist:
+        st.info("No results yet. Click **Run Evaluation** to generate them.")
+
+    if st.session_state.get("show_charts") and results_exist:
+        with st.spinner("Generating charts..."):
+            try:
+                from evaluation.visualize import _load_results, _extract
+                from evaluation.visualize import plot_scores, plot_latency, plot_safety_pass_rate, plot_cost_latency_table
+                from evaluation.visualize import CHARTS_DIR
+
+                CHARTS_DIR.mkdir(parents=True, exist_ok=True)
+                results = _load_results()
+                data    = _extract(results)
+
+                plot_scores(data)
+                plot_latency(data)
+                plot_safety_pass_rate(data)
+                plot_cost_latency_table(data)
+            except Exception as e:
+                st.error(f"Visualization failed: {e}")
+                st.stop()
+
+        st.markdown("---")
+
+        chart_files = [
+            ("evaluation/charts/scores_by_bucket.png",    "Evaluation Scores by Bucket"),
+            ("evaluation/charts/safety_pass_rate.png",    "Safety & Quality Pass Rate"),
+            ("evaluation/charts/latency_by_bucket.png",   "Response Latency by Bucket"),
+            ("evaluation/charts/cost_latency_table.png",  "Cost & Latency Summary"),
+        ]
+
+        for path, title in chart_files:
+            if Path(path).exists():
+                st.markdown(f"**{title}**")
+                st.image(path, use_container_width=True)
+                st.divider()

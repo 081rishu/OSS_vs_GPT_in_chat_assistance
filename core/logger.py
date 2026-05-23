@@ -1,7 +1,7 @@
 import json
 from datetime import datetime, timezone
 
-from config import TELEMETRY_FILE
+from config import TELEMETRY_FILE, TELEMETRY_ENABLED
 
 
 class TelemetryLogger:
@@ -33,6 +33,9 @@ class TelemetryLogger:
             },
             "guardrail_status": guardrail_status,
         }
+
+        if not TELEMETRY_ENABLED:
+            return {"_code": 200, "_msg": "telemetry disabled", "_data": entry}
 
         try:
             with open(TELEMETRY_FILE, "a", encoding="utf-8") as f:

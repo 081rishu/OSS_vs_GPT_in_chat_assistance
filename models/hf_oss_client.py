@@ -1,7 +1,7 @@
 import os
 from huggingface_hub import InferenceClient
 
-from config import OSS_MODEL_ID, OSS_MAX_NEW_TOKENS, OSS_TEMPERATURE
+from config import OSS_MODEL_ID, OSS_MAX_NEW_TOKENS, OSS_TEMPERATURE, OSS_PROVIDER
 from models.base_client import BaseAssistantClient
 
 
@@ -12,7 +12,7 @@ class HFOSSClient(BaseAssistantClient):
         if not api_key:
             raise EnvironmentError("HF_API_KEY is not set in environment")
         self.client = InferenceClient(
-            provider="hf-inference",
+            provider=OSS_PROVIDER,
             api_key=api_key,
         )
         self.model_id = OSS_MODEL_ID

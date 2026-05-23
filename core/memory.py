@@ -57,20 +57,18 @@ class LazyMemoryManager:
 
         try:
             api_key = os.getenv("OPENAI_API_KEY")
-            if not api_key:
-                return
-
-            client = OpenAI(api_key=api_key)
-            response = client.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=[{"role": "user", "content": prompt}],
-                temperature=0.0,
-                max_tokens=256,
-            )
-            raw = response.choices[0].message.content.strip()
-            extracted = json.loads(raw)
-            if isinstance(extracted, dict):
-                self.metadata_profile.update(extracted)
+            if api_key:
+                client = OpenAI(api_key=api_key)
+                response = client.chat.completions.create(
+                    model="gpt-4o-mini",
+                    messages=[{"role": "user", "content": prompt}],
+                    temperature=0.0,
+                    max_tokens=256,
+                )
+                raw = response.choices[0].message.content.strip()
+                extracted = json.loads(raw)
+                if isinstance(extracted, dict):
+                    self.metadata_profile.update(extracted)
         except Exception:
             pass
 

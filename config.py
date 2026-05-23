@@ -1,3 +1,5 @@
+import os
+
 # ---------------------------------------------------------------------------
 # OSS Model
 # ---------------------------------------------------------------------------
@@ -38,9 +40,24 @@ GUARDRAIL_CATEGORIES = [
 ]
 
 # ---------------------------------------------------------------------------
+# Demo session limits (public HF Spaces deployment protection)
+# ---------------------------------------------------------------------------
+DEMO_MAX_TURNS       = 20      # max turns per session before throttling
+DEMO_MAX_TOKENS      = 8000    # approximate total token budget per session
+DEMO_CONTACT_EMAIL   = "freeloadermr@gmail.com"
+DEMO_PASSKEY         = os.getenv("DEMO_PASSKEY", "")  # set in .env — resets usage on hard stop
+
+# ---------------------------------------------------------------------------
 # Telemetry
 # ---------------------------------------------------------------------------
 TELEMETRY_FILE       = "telemetry_history.jsonl"
+TELEMETRY_ENABLED    = os.getenv("TELEMETRY_ENABLED", "true").lower() == "true"
+
+# ---------------------------------------------------------------------------
+# OSS inference provider — override via env var for fallback deployments
+# HF Spaces may need "nebius" or "together" if hf-inference blocks the model
+# ---------------------------------------------------------------------------
+OSS_PROVIDER         = os.getenv("OSS_PROVIDER", "hf-inference")
 
 # ---------------------------------------------------------------------------
 # Evaluation
