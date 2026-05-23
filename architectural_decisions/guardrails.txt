@@ -1,0 +1,86 @@
+GUARDRAIL SYSTEM ARCHITECTURE & PRODUCTION DESIGN
+Position: Founding AI/ML Engineer Assignment
+Candidate: Rishabh
+Date: May 2026
+
+===============================================================================
+1. CORE ARCHITECTURAL PRINCIPLE: LAYERED DEFENSE & DECOUPLED ROUTING
+===============================================================================
+In production AI systems, a primary engineering failure mode is "Latency Bloat" 
+caused by routing all inputs through monolithic, multi-layered LLM validation prompts. 
+To meet strict safety boundaries without degrading Time-to-First-Token (TTFT), 
+this system implements a decoupled, three-stage interception pipeline. 
+
+By categorizing safety goals by computational weight, the system optimizes response 
+speeds on safe turns while establishing a bulletproof security floor for adversarial attacks.
+
+===============================================================================
+2. THREE-STAGE SECURITY LIFECYCLE
+===============================================================================
+
+-------------------------------------------------------------------------------
+STAGE 1: INPUT-STAGE FILTER MIDDLEWARE (Defensive Security)
+-------------------------------------------------------------------------------
+  - Target Safety Goals: 
+    * Avoids harmful, sensitive, or illegal content.
+    * Avoids abusive or disrespectful behavior.
+    * Blocks adversarial prompt injections and jailbreaks.
+  - Implementation Method: 
+    A lightweight, synchronous Python interception class executing *before* the prompt touches downstream assistant models.
+  - Mitigation Mechanics:
+    * Tier 1 (Deterministic): High-speed keyword/regex hashing to flag known malicious 
+      patterns and exact system-prompt override phrases instantly.
+    * Tier 2 (Lightweight Classification): A fast API call to the OpenAI Moderation API
+      evaluating explicit hazard categories (hate, harassment, self-harm, illicit
+      instructions). Selected over serverless Llama Guard 3 1B because: it is free,
+      has no cold-start latency, and avoids adding a second HF inference dependency
+      that would increase Stage 1 latency unpredictably.
+  - Latency Optimization:
+    If flagged, an immediate early exit triggers, returning a clean, static refusal
+    message. This completely avoids expensive downstream model execution on obviously
+    unsafe inputs. Tier 1 regex exits in ~0-5ms; Tier 2 Moderation API adds ~100-300ms
+    network round-trip. The combined Stage 1 early-exit path is sub-350ms worst-case,
+    not sub-100ms — the 0-100ms figure applies to Tier 1 regex-only hits.
+
+-------------------------------------------------------------------------------
+STAGE 2: SYSTEM-ALIGNMENT CONSTRAINTS (Behavioral Steering)
+-------------------------------------------------------------------------------
+  - Target Safety Goals:
+    * Follows policies and boundaries.
+    * Keeps responses safe and appropriate.
+    * Maintains a helpful, professional, and positive interaction.
+  - Implementation Method: 
+    Structural context engineering integrated directly into the compiled payload.
+  - Mitigation Mechanics:
+    An immutable, root `SYSTEM_PROMPT` block is injected at the top of the message 
+    array during every conversational turn. This anchors the engine's personality, 
+    specifies strict domain limitations, and dictates deterministic refusal behavior 
+    (e.g., "If asked for subjective political or religious opinions, gracefully decline 
+    and steer back to the assistant's functional boundaries").
+
+-------------------------------------------------------------------------------
+STAGE 3: OUTPUT-STAGE AUDITING VALIDATION (Post-Processing Verification)
+-------------------------------------------------------------------------------
+  - Target Safety Goals:
+    * Reduces hallucinations and fabricated facts.
+    * Detects system prompt leakage.
+  - Implementation Method: 
+    Post-generation parsing functions executed after the assistant model completes 
+    inference but *before* rendering text streams to the user interface.
+  - Mitigation Mechanics:
+    * Scans output text arrays for occurrences of hidden system tokens or exact 
+      internal operational prompt signatures.
+    * Detects formatting failures or repetitive looping syntax common when smaller 
+      open-source models (like Qwen2.5-0.5B) fracture under creative adversarial stress.
+    * Instantly replaces compromised or hallucinated strings with a standardized, 
+      graceful fallback message, preventing erratic behavior from reaching the client layer.
+
+===============================================================================
+3. METRIC TRACKING FOR THE EVALUATION REPORT
+===============================================================================
+This decoupled architecture provides deterministic data points for the 1-page report:
+  - Unshielded Baseline vs. Guarded Performance: Demonstrates how the native 
+    open-source model behaves under adversarial pressure versus its performance 
+    with the guardrail middleware active.
+  - Latency-to-Safety Efficiency: Quantifies the computational cost-savings 
+    of the input-stage early exit when managing toxic or jailbreak-heavy test datasets.

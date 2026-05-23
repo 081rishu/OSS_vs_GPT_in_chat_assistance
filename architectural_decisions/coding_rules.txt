@@ -1,0 +1,62 @@
+CODING CONVENTIONS & RULES
+Position: Founding AI/ML Engineer Assignment
+Candidate: Rishabh
+Date: May 2026
+
+===============================================================================
+1. MODULARITY & FILE SIZE
+===============================================================================
+  - No long scripts. Every file should do one thing.
+  - Reusable/shared logic goes in a dedicated utils/ file or module.
+  - If a module grows long, convert it into a subdirectory with focused submodules.
+    Example: core/guardrails.py → core/guardrails/__init__.py + input_filter.py + output_auditor.py
+  - app.py is the only permitted "orchestration" file that imports broadly.
+
+===============================================================================
+2. PROMPTS
+===============================================================================
+  - All LLM prompt strings (system prompts, judge rubrics, extraction templates)
+    live in a single dedicated file: prompts.py at the repo root.
+  - No prompt strings hardcoded inline inside logic files.
+  - Each prompt is a named module-level constant (ALL_CAPS).
+
+===============================================================================
+3. STANDARD RETURN SHAPE
+===============================================================================
+Every function that can fail or produce a payload must return this dict:
+
+    {
+        "_code": int,   # HTTP semantics (200, 400, 500, etc.)
+        "_msg":  str,   # Human-readable status or error description
+        "_data": any    # Payload on success, None on failure
+    }
+
+  - 200: Success
+  - 400: Bad input / validation failure / guardrail block
+  - 429: Rate limit hit
+  - 500: Internal error / API failure / unexpected exception
+  - 503: Downstream model unavailable (HF cold start, OpenAI outage)
+
+Caller pattern — always check _code before using _data:
+
+    result = some_function(...)
+    if result["_code"] != 200:
+        return result          # bubble up, no special casing
+    payload = result["_data"]
+
+===============================================================================
+4. INPUT VALIDATION
+===============================================================================
+  - Every public function validates its required arguments at the top.
+  - Missing or wrong-type inputs return {"_code": 400, "_msg": "...", "_data": None}
+    immediately, before any logic runs.
+  - No silent defaults for required parameters.
+
+===============================================================================
+5. GENERAL
+===============================================================================
+  - No commented-out dead code.
+  - No inline TODO comments — use the task tracker instead.
+  - No print() for debugging — use core/logger.py exclusively.
+  - Constants (model IDs, thresholds, window sizes) go in a single config.py
+    at the repo root, not scattered across files.

@@ -1,0 +1,43 @@
+BONUS DEPLOYMENT SPECIFICATIONS & ARCHITECTURE
+Position: Founding AI/ML Engineer Assignment
+Candidate: Rishabh
+Date: May 2026
+
+===============================================================================
+1. PUBLIC DEPLOYMENT METHODOLOGY (HUGGING FACE SPACES)
+===============================================================================
+To secure the assignment's guaranteed interview bonus without introducing heavy 
+operational dependencies, the Open-Source pipeline is deployed publicly via 
+Hugging Face Spaces utilizing an API-Proxy architecture.
+
+  - Frontend/Backend Host: Hugging Face Spaces (Streamlit Python runtime tier).
+  - Inference Provider Engine: Hugging Face Serverless Inference API.
+  - Model Identifier: Qwen/Qwen2.5-0.5B-Instruct
+  - Connection Pattern: Requests are securely dispatched to the serverless
+    inference clusters using OpenAI-compatible payload schemas. This design pattern
+    maintains a zero-dollar infrastructure cost. Note: The HF Serverless free tier
+    has known cold-start delays (10-30+ seconds on first request) and rate-throttling
+    under sustained load. Warm-path latency is typically sub-500ms but is not guaranteed.
+
+===============================================================================
+2. OBSERVABILITY & TELEMETRY ARCHITECTURE
+===============================================================================
+Real-time production observability is achieved using a lightweight, structured 
+Local Telemetry Engine integrated directly into the application pipeline.
+
+  - Logging Paradigm: Structured Append-Only File Stream (telemetry_history.jsonl)
+  - Telemetry Field Tracking:
+    * timestamp (ISO 8601 string sequence format)
+    * model_variant (Qwen-0.5B vs. gpt-4o-mini execution tier)
+    * turn_count (Sequential integer transaction index tracking session depth)
+    * latency_ms (Precise execution delta clock timing for Time-To-First-Token)
+    * tokens_processed (Input prompt and generated response lengths)
+    * guardrail_status (Pass flag vs. Early-exit refusal interception tags)
+
+===============================================================================
+3. MEMORY PARITY AND CAPABILITY RECAP
+===============================================================================
+  - Short-to-Mid Memory: Controlled by the Lazy Hybrid Memory layer, executing 
+    on-demand parameter compaction at exactly Turn 6 to lock token payloads.
+  - Guardrail Security: Satisfied via the 3-stage decoupled routing pipeline, 
+    ensuring continuous alignment against harmful content, loops, and leaks.

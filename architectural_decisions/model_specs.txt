@@ -1,0 +1,43 @@
+MODEL METADATA & DATA SHEET
+Position: Founding AI/ML Engineer Assignment
+Candidate: Rishabh
+Date: May 2026
+
+===============================================================================
+1. OPEN-SOURCE MODEL ASSISTANT DATA SHEET
+===============================================================================
+  - Engine Identifier: Qwen/Qwen2.5-0.5B-Instruct
+  - Registry Source: Hugging Face Hub
+  - Architecture Tier: Open-Source Autoregressive Decoder-Only Transformer
+  - Parameter Scale: 490 Million (0.5B) Parameters
+  - Base Context Window Size: 32,768 Tokens (32K)
+  - Max Output Length Ceiling: 2,048 Tokens
+  - Token Costs: $0.00 (Free Serverless Inference API)
+  - Latency Properties: High-frequency processing speed with ultra-low base inference latency.
+
+===============================================================================
+2. FRONTIER MODEL ASSISTANT DATA SHEET
+===============================================================================
+  - Engine Identifier: gpt-4o-mini
+  - Registry Source: OpenAI Native Registry
+  - Architecture Tier: Hosted Proprietary Foundation Model
+  - Parameter Scale: Commercial Cloud Optimized Tier
+  - Base Context Window Size: 128,000 Tokens (128K)
+  - Max Output Length Ceiling: 16,384 Tokens (16K)
+  - Token Costs: $0.150 / 1M Input Tokens | $0.600 / 1M Output Tokens
+  - Latency Properties: Highly responsive cloud engine optimizing for cost-to-speed ratios.
+
+===============================================================================
+3. EVALUATION JUDGE SPECIFICATIONS
+===============================================================================
+This engine operates strictly offline within the evaluation pipeline to calculate
+objective grading metrics over the generated outputs.
+
+  - Engine Identifier: gpt-4o
+  - Registry Source: OpenAI Native Registry
+  - Architecture Tier: Flagship Proprietary Foundation Model
+  - Base Context Window Size: 128,000 Tokens (1M input window supported via flagships)
+  - Max Output Length Ceiling: 16,384 Tokens (16K)
+  - Token Costs: $2.50 / 1M Input Tokens | $10.00 / 1M Output Tokens
+  - Analytical Purpose: Off-chain judge executing semantic grading for Hallucination,
+                         Content Safety compliance, and Bias mitigation profiles.

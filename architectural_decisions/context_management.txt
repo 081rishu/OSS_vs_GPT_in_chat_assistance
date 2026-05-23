@@ -1,0 +1,91 @@
+CONTEXT MANAGEMENT STRATEGY & ARCHITECTURE TRADEOFFS
+Position: Founding AI/ML Engineer Assignment
+Candidate: Rishabh
+Date: May 2026
+
+===============================================================================
+1. SELECTED APPROACH: STRUCTURED STATE PROFILE + LAZY SLIDING WINDOW HYBRID
+===============================================================================
+For this 24-hour engineering assessment, the assistant will implement a manual,
+highly optimized "Lazy Extraction / Conditional Compaction" memory architecture. 
+Inspired by production design principles in the OpenAI Agents SDK (Context Personalization),
+this setup explicitly decouples persistent long-term facts from fluid, short-term
+conversational history using two clean Python primitives:
+  1. self.metadata_profile (Dict): Structured key-value storage for extracted parameters.
+  2. self.recent_history (List): A strict FIFO rolling chat message array.
+
+Data Flow & Lifecycle (The Turn-Counter Threshold Logic):
+  - Phase 1: High-Velocity Stream (Turns 1 to 5)
+    To guarantee the absolute lowest possible Time-To-First-Token (TTFT) and avoid 
+    wasting API costs, conversational data flows natively into a pure sliding window. 
+    No background extraction loops run during this short-horizon phase.
+  - Phase 2: Lazy Compaction Trigger (Turn 6 Threshold)
+    Only when the conversation naturally crosses 5 turns does a single conditional 
+    interception loop fire. The system triggers a background extraction pass over the 
+    existing conversation history log, identifying explicit permanent variables (e.g., 
+    user name, core technologies, structural project constraints) and writing them 
+    permanently to self.metadata_profile.
+  - Phase 3: Pruning & Pinning (Turns 7+)
+    The oldest raw text turns are cleanly flushed from self.recent_history to lock 
+    the active message window below a strict ceiling. Parity is maintained because 
+    the extracted profile dict is permanently appended to the system instructions.
+
+===============================================================================
+2. ARCHITECTURAL RATIO & COMPARATIVE ANALYSIS
+===============================================================================
+
+-------------------------------------------------------------------------------
+CRITERIA               APPROACH A: LAZY HYBRID (SELECTED) APPROACH B: EAGER SUMMARY LOOP
+-------------------------------------------------------------------------------
+Latency / TTFT         Optimized & Highly Predictable     Constant High Overhead
+                       Zero extraction overhead for       Triggers heavy background 
+                       Turns 1-5; flat performance floor. prompts on regular intervals.
+-------------------------------------------------------------------------------
+Information Retention  Guaranteed Integrity               Leaky (Information Decay)
+                       Explicit variables are permanently Cascading text abstractions 
+                       isolated into state dict.          dilute details over time.
+-------------------------------------------------------------------------------
+Token Efficiency       Strictly Capped                    Unpredictable Bloat
+                       Limits text history to N turns.    Summary text scales arbitrarily.
+-------------------------------------------------------------------------------
+Code Complexity        Minimal (Pure Python)              Moderate to High
+                       Modular dictionary management.     Complex template parsing chains.
+-------------------------------------------------------------------------------
+
+===============================================================================
+3. DISCARDED ALTERNATIVES & TECHNICAL JUSTIFICATIONS
+===============================================================================
+
+Alternative 1: Eager / Continuous LLM-Based Summarization
+  - Why Discarded: Forcing a background serialization step on every single active 
+    turn or at low thresholds forces heavy multi-turn execution paths. This can 
+    easily double or triple the Time-To-First-Token (TTFT) on trigger turns. 
+    In an assessment explicitly evaluating an implementation's cost and latency, 
+    unpredictable or constant framework-induced latency spikes are a major penalty. 
+    Furthermore, repeatedly generating summaries of summaries creates a "telephone 
+    game" effect, progressively eroding specific parameters.
+
+Alternative 2: Vector-Backed Selective Retrieval (Long-Term Memory RAG)
+  - Why Discarded: Incorporating a full Vector Database framework (e.g., local 
+    ChromaDB or cloud Pinecone) introduces significant operational risks on a tight 
+    24-hour timeline. It complicates deployment portability, introduces native 
+    dependency installation hurdles for the reviewer, and creates an unnecessary 
+    memory footprint. For short-to-medium diagnostic evaluations (20-50 turns), 
+    the data scale does not justify the computational abstraction of a vector database.
+
+===============================================================================
+4. PRODUCTION ROADMAP & FUTURE EXTENSIONS (FOR THE README)
+===============================================================================
+To demonstrate professional system architecture depth to the evaluation team, 
+the following roadmap expansions will be highlighted under "Future Improvements":
+
+  - Transition to In-Memory Vector Search: For mid-horizon session history without 
+    external structural bloat, implement manual dot-product math over a simple local 
+    list populated by fast native embedding API calls (e.g., OpenAI/Gemini Embeddings).
+  - Virtual Context Paging (MemGPT / Letta Pattern): Evolve the manual orchestrator 
+    into an autonomous memory operating system, exposing explicit tools (e.g., 
+    `write_to_archival`, `patch_core_state`) directly to the frontier model to 
+    self-manage context allocations.
+  - Multi-Scale Temporal Summarization: Implement hierarchical summary tiers 
+    (micro logs every 5 turns, macro session milestones every 25 turns) to maximize 
+    historical awareness while strictly protecting input token economics

@@ -1,0 +1,97 @@
+REPOSITORY ARCHITECTURE & INTEGRATION SPECIFICATIONS
+Position: Founding AI/ML Engineer Assignment
+Candidate: Rishabh
+Date: May 2026
+
+===============================================================================
+1. SUMMARY OF THE TECHNICAL BLUEPRINT
+===============================================================================
+This repository implements a production-grade, highly modular dual-assistant 
+evaluation pipeline. By separating core interface specifications from direct 
+inference implementations, the system guarantees strict capability parity, clean 
+separation of concerns, and plug-and-play model swap capabilities.
+
+The core application runs a side-by-side comparison UI via Streamlit, wrapping 
+both an open-source model (Qwen 2.5 0.5B) and a frontier commercial model (GPT-4o-mini) 
+in identical custom runtime orchestration pipelines (3-Stage Guardrails and a 
+Turn-6 Lazy Hybrid Memory lifecycle).
+
+===============================================================================
+2. COMPLETE REPOSITORY DIRECTORY MATRIX
+===============================================================================
+ollive_assignment/
+│
+├── .env                           # Encrypted Runtime Secrets (Gitignored)
+├── .gitignore                     # Git Tracking Exclusion Rules
+├── requirements.txt               # Unified Python Pin-Capped Dependency File
+├── README.md                      # Production Documentation & Architectural Roadmap
+├── telemetry_history.jsonl        # Append-Only Local Observability Stream Log
+│
+├── app.py                         # Dual-Column Reactive Streamlit UI Entrypoint
+├── config.py                      # All constants: model IDs, thresholds, window sizes, timeouts
+├── prompts.py                     # All LLM prompt strings as named module-level constants
+│
+├── architectural_decisions/       # Immutable Design brief & Choice Logs
+│   ├── context_management.txt     # Lazy memory lifecycle justifications
+│   ├── deployment_specs.txt       # Public cloud configuration specification
+│   ├── evaluation_framework.txt   # 3-Bucket test parameters & criteria
+│   ├── guardrails.txt             # 3-Stage decoupled routing strategy
+│   ├── model_specs.txt            # Operational metrics, limits, and cost sheets
+│   └── repo_arch.txt              # This file: repository structure & data flow spec
+│
+├── core/                          # State-Orchestration & Interception Engines
+│   ├── __init__.py                # Packages core directory as an importable namespace
+│   ├── memory.py                  # State tracking & Turn-6 extraction loop logic
+│   ├── guardrails.py              # Tiered Input-Filters & Output-Auditor classes
+│   └── logger.py                  # Asynchronous structured transaction telemetry encoder
+│
+├── models/                        # Abstract Client Decoupling Framework
+│   ├── __init__.py                # Packages models directory as an importable namespace
+│   ├── base_client.py             # Abstract Base Class (ABC) enforcing payload typing boundaries
+│   ├── hf_oss_client.py           # Qwen2.5-0.5B Serverless client provider class
+│   └── openai_frontier_client.py  # GPT-4o-mini commercial API client provider class
+│
+└── evaluation/                    # Offline Benchmarking & Analysis Suite
+    ├── __init__.py                # Packages evaluation directory as an importable namespace
+    ├── test_suite.json            # 15-20 Multi-turn conversational prompt dataset
+    ├── eval_judge.py              # GPT-4o structured LLM-as-a-Judge execution loop
+    └── eval_results.json          # Output artifact: per-turn scores, latency, cost data
+
+===============================================================================
+3. COMPONENT BOUNDARIES & DATA INTERACTION CYCLE
+===============================================================================
+
+-------------------------------------------------------------------------------
+THE DUAL INITIALIZATION MATRIX (app.py)
+-------------------------------------------------------------------------------
+When the Streamlit dashboard loads:
+  1. The UI layer initializes two parallel orchestrator instances inside the session state:
+     - `st.session_state.oss_assistant` (Wraps core/ modules around models/hf_oss_client)
+     - `st.session_state.frontier_assistant` (Wraps core/ modules around models/openai_frontier_client)
+  2. A single, centered `st.chat_input()` block intercepts the user payload, passing the raw 
+     string out to both engines simultaneously via identical `.predict(prompt)` execution calls.
+
+-------------------------------------------------------------------------------
+THE MODULAR EXECUTION LOOP (core/ pipeline)
+-------------------------------------------------------------------------------
+On every interaction turn, the incoming string data passes through a deterministic loop:
+  - Step A: `core.guardrails.InputGuardrail` executes fast regex and LlamaGuard/Moderation checks.
+    * If unsafe: Instantly outputs a refusal block, skips API generation, logs data, returns text.
+  - Step B: `core.memory.LazyMemoryManager` updates the turn trace counter.
+    * Turns 1-5: The prompt passes natively to the active history array (zero-overhead loop).
+    * Turn 6: Automatically triggers an out-of-band extraction call to pull critical static parameters,
+      populates `self.metadata_profile`, and drops oldest chat text items to clear input scope.
+  - Step C: `models.base_client` dynamic routing.
+    * Constructs a uniform text message payload: [Immutable System Instructions] + [Metadata Profile Dict] + [Sliding Chat History].
+    * Executes the native target API request and normalizes the incoming text block response string.
+  - Step D: `core.guardrails.OutputAuditor` parses the raw string response to verify safety compliance.
+  - Step E: `core.logger.TelemetryLogger` captures structural payload parameters, recording execution duration, 
+    token metrics, and guard flags to the `telemetry_history.jsonl` pipeline.
+
+-------------------------------------------------------------------------------
+THE SEPARATED EVALUATION MATRIX (evaluation/ pipeline)
+-------------------------------------------------------------------------------
+  - Running `python -m evaluation.eval_judge` spins up an offline loop completely decoupled from Streamlit.
+  - It boots instances of both assistants, runs through the 3-bucket sequential prompt tracking scripts in `test_suite.json`, 
+    captures real-world performance metrics, and asks an isolated `gpt-4o` instance using structured outputs to write objective 
+    1-5 score results to a data-ready file.
