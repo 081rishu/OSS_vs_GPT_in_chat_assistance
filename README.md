@@ -2,7 +2,7 @@
 title: Ollive AI Assistant
 emoji: 🤖
 colorFrom: blue
-colorTo: orange
+colorTo: red
 sdk: docker
 app_port: 8501
 tags:
