@@ -64,9 +64,12 @@ ollive_assignment/
 │   └── openai_frontier_client.py # GPT-4o-mini via OpenAI SDK
 │
 ├── evaluation/
-│   ├── test_suite.json           # 3-bucket, 11-turn evaluation dataset
+│   ├── test_suite.json           # 5-bucket, 22-turn evaluation dataset
 │   ├── eval_judge.py             # GPT-4o LLM-as-a-Judge scoring loop
-│   └── eval_results.json         # Output: per-turn scores, latency, guard status
+│   ├── visualize.py              # Generates 4 infographic PNGs from eval results
+│   ├── eval_results.json         # Output: per-turn scores, latency, guard status
+│   ├── report.html               # 1-page evaluation report with embedded charts
+│   └── charts/                   # Generated PNGs: scores, safety rate, latency, cost table
 │
 └── architectural_decisions/      # Design briefs and tradeoff logs
 ```
@@ -122,15 +125,17 @@ Every prompt passes through three independent safety stages before and after mod
 
 ### Evaluation — LLM-as-a-Judge
 
-Three multi-turn conversation buckets designed to expose failure modes that standard benchmarks miss:
+Five multi-turn conversation buckets designed to expose failure modes that standard benchmarks miss:
 
 | Bucket | Turns | Tests |
 |---|---|---|
-| Factual Retention & Amnesia | 6 | Context carry, API hallucination, versioned library facts |
-| Adversarial & Jailbreak | 3 | Regex bypass attempts, roleplay override, system prompt extraction |
-| Bias & Compliance | 2 | Discriminatory premise traps, neutrality under pressure |
+| B1 · Factual Retention & Hallucination | 6 | Context carry, API fabrication, versioned library facts |
+| B2 · Pure Hallucination Probes | 5 | Non-existent libraries, fake API endpoints, fabricated events |
+| B3 · Adversarial & Jailbreak Robustness | 3 | Regex bypass attempts, roleplay override, system prompt extraction |
+| B4 · Bias & Discriminatory Outputs | 5 | Discriminatory premise traps, gender/religious/age bias |
+| B5 · Harmful Content & Unsafe Responses | 3 | Dangerous synthesis, illegal advice, self-harm adjacent |
 
-`gpt-4o` scores each response 1–5 using a strict rubric with all five levels defined. Results are written to `evaluation/eval_results.json` with per-turn scores, latency, and guard status for both models.
+`gpt-4o` scores each response 1–5 using a strict rubric with all five levels defined. Results are written to `evaluation/eval_results.json` with per-turn scores, latency, and guard status for both models. Run `python -m evaluation.visualize` to regenerate the 4 infographic charts.
 
 ---
 
@@ -155,11 +160,20 @@ Three multi-turn conversation buckets designed to expose failure modes that stan
 
 3. **Streaming responses** — Both the HF Serverless API and OpenAI SDK support token streaming. Wiring this into Streamlit (`st.write_stream`) would dramatically improve perceived latency for the user.
 
-4. **Richer evaluation dataset** — Expand from 3 buckets to 6–8, covering tool use, multi-language code generation, and long-horizon multi-session memory recall.
+4. **Broader evaluation dataset** — Expand to 8+ buckets covering tool use, multi-language code generation, and long-horizon multi-session memory recall.
 
 5. **Persistent sessions** — Currently memory resets on page reload. A session ID + lightweight SQLite store would enable returning users to resume conversations.
 
 6. **Real token counting** — Replace character-based estimation with `tiktoken` for OpenAI models and the HF tokenizer for Qwen, giving accurate cost reporting in the telemetry log.
+
+---
+
+## Demo
+
+Live deployment on Hugging Face Spaces (Docker/Streamlit):
+**https://081rishu-ollive-ai-assistant.hf.space**
+
+Session limits apply (20 turns / 8 000 token budget) to protect the OpenAI quota.
 
 ---
 
@@ -169,6 +183,9 @@ Three multi-turn conversation buckets designed to expose failure modes that stan
 |---|---|
 | `OPENAI_API_KEY` | Used for GPT-4o-mini (frontier assistant), memory extraction (Turn-6 compaction), OpenAI Moderation API (Stage 1 guardrail), and GPT-4o eval judge |
 | `HF_API_KEY` | Hugging Face read token for Serverless Inference API (Qwen 2.5-0.5B) |
+| `OSS_PROVIDER` | HF InferenceClient provider (default: `featherless-ai`). Change to `nebius` or `together` if the default is unavailable. |
+| `DEMO_PASSKEY` | Bypass token for demo session limits (keep private, never commit) |
+| `TELEMETRY_ENABLED` | Set to `false` on HF Spaces (ephemeral filesystem — writes disabled) |
 
 ---
 
