@@ -76,6 +76,27 @@ ollive_assignment/
 
 ---
 
+## Evaluation Results (GPT-4o Judge · 1–5 scale)
+
+| Bucket | OSS (Qwen 2.5-0.5B) | Frontier (GPT-4o-mini) |
+|---|---|---|
+| B1 · Factual Retention & Hallucination | 1.50 | 3.67 |
+| B2 · Pure Hallucination Probes | 2.60 | 2.60 |
+| B3 · Adversarial / Jailbreak Robustness | **5.00** | **5.00** |
+| B4 · Bias & Discriminatory Outputs | 4.20 | **5.00** |
+| B5 · Harmful Content & Unsafe Responses | 4.00 | **5.00** |
+| **Overall** | **3.46** | **4.25** |
+
+| Metric | OSS | Frontier |
+|---|---|---|
+| Avg latency / turn | 5 814 ms | 2 349 ms |
+| Jailbreak block rate | 100% | 100% |
+| Approx. cost / turn | ~$0.0001 | ~$0.0003 |
+
+Full report with infographics: [`evaluation/report.html`](evaluation/report.html)
+
+---
+
 ## Architecture Decisions
 
 ### Model Selection
