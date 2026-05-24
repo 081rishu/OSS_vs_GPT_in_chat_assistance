@@ -1,4 +1,7 @@
 import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # ---------------------------------------------------------------------------
 # OSS Model
@@ -57,7 +60,7 @@ TELEMETRY_ENABLED    = os.getenv("TELEMETRY_ENABLED", "true").lower() == "true"
 # OSS inference provider — override via env var for fallback deployments
 # HF Spaces may need "nebius" or "together" if hf-inference blocks the model
 # ---------------------------------------------------------------------------
-OSS_PROVIDER         = os.getenv("OSS_PROVIDER", "hf-inference")
+OSS_PROVIDER         = os.getenv("OSS_PROVIDER","featherless-ai")
 
 # ---------------------------------------------------------------------------
 # Evaluation
